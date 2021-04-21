@@ -27,6 +27,9 @@ struct Project {
         guard let file = dict["file"] as? String else {
             throw Configuration.Error.invalidSources(message: "Project file path is not provided. Expected string.")
         }
+        
+        let path = Path(file, relativeTo: relativePath)
+        let xcodeProj = try XcodeProj(path: path)
 
         let targetsArray: [Target]
         if let targets = dict["target"] as? [[String: String]] {
@@ -34,7 +37,7 @@ struct Project {
         } else if let target = dict["target"] as? [String: String] {
             targetsArray = try [Target(dict: target)]
         } else {
-            throw Configuration.Error.invalidSources(message: "'target' key is missing. Expected object or array of objects.")
+            targetsArray = try xcodeProj.pbxproj.nativeTargets.map { try Target(dict: ["name": $0.name]) }
         }
         guard !targetsArray.isEmpty else {
             throw Configuration.Error.invalidSources(message: "No targets provided.")
@@ -44,8 +47,7 @@ struct Project {
         let exclude = (dict["exclude"] as? [String])?.map({ Path($0, relativeTo: relativePath) }) ?? []
         self.exclude = exclude.flatMap { $0.allPaths }
 
-        let path = Path(file, relativeTo: relativePath)
-        self.file = try XcodeProj(path: path)
+        self.file = xcodeProj
         self.root = path.parent()
     }
 
